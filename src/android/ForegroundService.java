@@ -29,6 +29,7 @@ import org.json.JSONObject;
 import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationManager;
+import android.app.NotificationChannel;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
@@ -40,6 +41,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
+
 
 /**
  * Puts the service in a foreground state, where the system considers it to be
@@ -61,6 +63,9 @@ public class ForegroundService extends Service {
 
     // Used to keep the app alive
     TimerTask keepAliveTask;
+	
+	public static final String NOTIFICATION_CHANNEL_ID_SERVICE = "de.appplant.cordova.plugin.background";
+	public static final String NOTIFICATION_CHANNEL_ID_INFO = "com.package.download_info";
 
     /**
      * Allow clients to call on to the service.
@@ -101,32 +106,25 @@ public class ForegroundService extends Service {
      * Put the service in a foreground state to prevent app from being killed
      * by the OS.
      */
-    public void keepAwake() {
-        final Handler handler = new Handler();
+    private void keepAwake() {
+       JSONObject settings = BackgroundMode.getSettings();
+       boolean isSilent    = settings.optBoolean("silent", false);
+       if (!isSilent) {
+           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+               NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+               nm.createNotificationChannel(new NotificationChannel(NOTIFICATION_CHANNEL_ID_SERVICE, "App Service", NotificationManager.IMPORTANCE_DEFAULT));
+               nm.createNotificationChannel(new NotificationChannel(NOTIFICATION_CHANNEL_ID_INFO, "Download Info", NotificationManager.IMPORTANCE_DEFAULT));
+           } else {
+               startForeground(NOTIFICATION_ID, makeNotification());
+           }
+       }
 
-        if (!this.inSilentMode()) {
-            startForeground(NOTIFICATION_ID, makeNotification());
-        } else {
-            Log.w("BackgroundMode", "In silent mode app may be paused by OS!");
-        }
-
-        BackgroundMode.deleteUpdateSettings();
-
-        keepAliveTask = new TimerTask() {
-            @Override
-            public void run() {
-                handler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        // Nothing to do here
-                        // Log.d("BackgroundMode", "" + new Date().getTime());
-                    }
-                });
-            }
-        };
-
-        scheduler.schedule(keepAliveTask, 0, 1000);
-    }
+       PowerManager powerMgr = (PowerManager)
+               getSystemService(POWER_SERVICE);
+       wakeLock = powerMgr.newWakeLock(
+               PowerManager.PARTIAL_WAKE_LOCK, "BackgroundMode");
+       wakeLock.acquire();
+   } 
 
     /**
      * Stop background mode.
