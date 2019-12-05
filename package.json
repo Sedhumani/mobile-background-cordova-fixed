@@ -1,6 +1,6 @@
 {
   "name": "cordova-plugin-bgmode",
-  "version": "0.7.0",
+  "version": "0.7.9",
   "description": "Cordova Background Mode Plugin",
   "cordova": {
     "id": "org.apache.cordova.device",
